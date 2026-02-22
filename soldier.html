@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RANA SAIM - BLACK OPS SIMULATION</title>
+    <style>
+        :root {
+            --army-green: #1a241a;
+            --night-vision: rgba(0, 255, 50, 0.1);
+            --gold: #C5A059;
+        }
+
+        body {
+            background: #000;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Impact, sans-serif;
+            cursor: crosshair;
+            user-select: none;
+        }
+
+        /* --- CINEMATIC ATMOSPHERE --- */
+        #game-container {
+            width: 100vw; height: 100vh;
+            background: radial-gradient(circle at 50% 40%, #2a332a 0%, #000 85%);
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            position: relative;
+        }
+
+        .overlay-grain {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 100;
+            mix-blend-mode: overlay;
+        }
+
+        .night-vision-tint {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, transparent 40%, #000 100%), linear-gradient(rgba(0,50,0,0.2), rgba(0,20,0,0.5));
+            pointer-events: none;
+            z-index: 90;
+        }
+
+        /* --- THE SOLDIER --- */
+        #soldier-rig {
+            width: 700px;
+            height: 850px;
+            position: relative;
+            z-index: 10;
+            transform-origin: bottom center;
+            transition: transform 0.05s ease-out;
+            filter: brightness(0.9) contrast(1.1) sepia(0.2);
+        }
+
+        /* --- FACE INTEGRATION SYSTEM --- */
+        .head-group {
+            position: absolute;
+            top: 100px;
+            left: 230px;
+            width: 240px;
+            height: 300px;
+            z-index: 5;
+        }
+
+        /* The Slot for YOUR PHOTO */
+        .user-face-container {
+            position: absolute;
+            top: 40px;
+            left: 20px;
+            width: 200px;
+            height: 240px;
+            overflow: hidden;
+            border-radius: 40px;
+            background: #332222; /* Skin tone base */
+            z-index: 1; /* Behind helmet straps, in front of neck */
+        }
+
+        #user-photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            /* This blends your photo to look like it's in a dark room */
+            filter: contrast(1.2) brightness(0.8) sepia(0.3); 
+            transform: scale(1.1); /* Slight zoom to fill */
+        }
+
+        /* Helmet & Gear Layers (SVG) */
+        .gear-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* --- ANIMATIONS --- */
+        .recoil { animation: kick 0.12s cubic-bezier(0,0,0.2,1); }
+        @keyframes kick {
+            0% { transform: translateY(0) rotate(0deg); }
+            20% { transform: translateY(25px) rotate(-2deg); }
+            100% { transform: translateY(0); }
+        }
+
+        /* --- HUD --- */
+        .hud {
+            position: absolute;
+            bottom: 40px; left: 40px;
+            color: #4ff;
+            font-family: 'Courier New', monospace;
+            z-index: 120;
+            text-shadow: 0 0 8px #4ff;
+            background: rgba(0, 20, 20, 0.7);
+            padding: 20px;
+            border-left: 4px solid #4ff;
+        }
+
+        /* --- MUZZLE FLASH --- */
+        .flash {
+            position: absolute;
+            bottom: 350px; left: 0; right: 0; top: 0;
+            background: radial-gradient(circle at 70% 80%, rgba(255, 200, 50, 0.4), transparent 50%);
+            opacity: 0;
+            mix-blend-mode: hard-light;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div class="overlay-grain"></div>
+        <div class="night-vision-tint"></div>
+        <div class="flash" id="light-flash"></div>
+
+        <!-- HUD -->
+        <div class="hud">
+            <h2 style="margin:0; font-size: 24px;">OPERATOR: RANA SAIM</h2>
+            <p style="margin:5px 0; color:#aaa; font-size:12px;">UNIT: SSG | PAKISTAN ARMY</p>
+            <div style="font-size: 40px; font-weight:bold;" id="ammo-counter">30 / 120</div>
+            <div style="font-size: 10px; margin-top:5px;">STATUS: COMBAT READY</div>
+        </div>
+
+        <!-- SOLDIER RIG -->
+        <div id="soldier-rig">
+            
+            <!-- 1. THE HEAD & FACE -->
+            <div class="head-group">
+                <!-- *** PLACE YOUR IMAGE HERE *** -->
+                <!-- Replace 'face.jpg' with your filename if different -->
+                <!-- Ensure your image file is in the same folder -->
+                <div class="user-face-container">
+                    <img src="YOUR_PHOTO_HERE.jpg" alt="Rana Saim Face" id="user-photo" onerror="this.src='https://via.placeholder.com/200x250/553333/ffffff?text=Add+Your+Photo'; this.style.opacity='0.5'">
+                </div>
+
+                <!-- Helmet SVG Overlay (Goes ON TOP of your photo) -->
+                <svg class="gear-overlay" viewBox="0 0 240 300">
+                    <!-- Helmet Shell -->
+                    <path d="M 20,100 C 20,20 220,20 220,100 L 220,140 L 20,140 Z" fill="#1b261b" stroke="#000" stroke-width="2"/>
+                    <!-- Helmet Rim/Detail -->
+                    <path d="M 120,30 L 120,80" stroke="#000" stroke-width="2" opacity="0.5"/>
+                    <rect x="90" y="80" width="60" height="20" fill="#222" rx="2" /> <!-- NVG Mount -->
+                    
+                    <!-- Chin Straps (Covers edges of face photo for realism) -->
+                    <path d="M 30,140 L 50,230 L 190,230 L 210,140" fill="none" stroke="#111" stroke-width="8"/>
+                    <path d="M 120,230 L 120,280" fill="none" stroke="#111" stroke-width="4"/> <!-- Mic boom base -->
+                </svg>
+            </div>
+
+            <!-- 2. BODY & UNIFORM SVG -->
+            <svg viewBox="0 0 700 850" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
+                <defs>
+                    <linearGradient id="vest-grad" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#111"/>
+                        <stop offset="100%" stop-color="#222"/>
+                    </linearGradient>
+                    <filter id="dropshadow">
+                        <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#000"/>
+                    </filter>
+                </defs>
+
+                <!-- Torso / Vest -->
+                <g transform="translate(150, 300)">
+                    <!-- Neck Guard -->
+                    <path d="M 120,0 L 280,0 L 300,50 L 100,50 Z" fill="#1a241a"/>
+                    <!-- Plate Carrier -->
+                    <path d="M 80,50 L 320,50 L 320,350 L 80,350 Z" fill="url(#vest-grad)" filter="url(#dropshadow)"/>
+                    
+                    <!-- NAME PLATE: RANA SAIM -->
+                    <g transform="translate(200, 80)">
+                        <rect x="-80" y="0" width="160" height="35" fill="#000" stroke="#333" rx="3"/>
+                        <text x="0" y="24" fill="#fff" text-anchor="middle" font-family="Arial Black" font-weight="900" font-size="20">RANA SAIM</text>
+                    </g>
+
+                    <!-- PAKISTAN FLAG PATCH -->
+                    <g transform="translate(110, 80)">
+                        <rect x="-20" y="0" width="50" height="35" fill="#00401A" stroke="#000"/>
+                        <rect x="-20" y="0" width="15" height="35" fill="#fff"/>
+                        <circle cx="15" cy="17" r="8" fill="#fff"/>
+                        <circle cx="17" cy="15" r="7" fill="#00401A"/>
+                        <path d="M 20,10 L 22,15 L 27,15 L 23,18 L 24,23 L 20,20 L 16,23 L 17,18 L 13,15 L 18,15 Z" fill="#fff" transform="scale(0.8) translate(5,5)"/>
+                    </g>
+                </g>
+
+                <!-- WEAPON SYSTEM -->
+                <g transform="translate(100, 500) rotate(-5)">
+                    <!-- Rifle Body -->
+                    <rect x="100" y="0" width="400" height="80" fill="#0f0f0f"/>
+                    <rect x="100" y="0" width="400" height="80" fill="url(#vest-grad)" opacity="0.5"/>
+                    <!-- Mag -->
+                    <path d="M 250,80 L 230,200 L 300,210 L 320,80 Z" fill="#050505"/>
+                    <!-- Barrel -->
+                    <rect x="500" y="20" width="150" height="20" fill="#000"/>
+                    <!-- Hands (Gloves) -->
+                    <circle cx="200" cy="80" r="30" fill="#1a1a1a"/>
+                    <circle cx="450" cy="50" r="30" fill="#1a1a1a"/>
+                </g>
+
+                <!-- Muzzle Flash Shape (Hidden) -->
+                <path id="muzzle-shape" d="M 650,520 L 750,480 L 800,520 L 750,560 Z" fill="#fff" opacity="0"/>
+            </svg>
+        </div>
+    </div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const soldier = document.getElementById('soldier-rig');
+        const flash = document.getElementById('light-flash');
+        const muzzleShape = document.getElementById('muzzle-shape');
+        const ammoDisplay = document.getElementById('ammo-counter');
+        
+        let ammo = 30;
+
+        // --- REALISTIC AUDIO ENGINE ---
+        // Does not use fake MP3s. Synthesizes "Thud" and "Crack" in real-time.
+        function playGunshot() {
+            const t = audioCtx.currentTime;
+
+            // 1. The "Crack" (High impact noise)
+            const bufferSize = audioCtx.sampleRate * 0.1; // Short burst
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const noiseFilter = audioCtx.createBiquadFilter();
+            noiseFilter.type = 'lowpass';
+            noiseFilter.frequency.value = 3000;
+            noise.connect(noiseFilter);
+            noiseFilter.connect(audioCtx.destination);
+            noise.start(t);
+
+            // 2. The "Thud" (Body punch)
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.frequency.setValueAtTime(150, t);
+            osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.3);
+            gain.gain.setValueAtTime(1.5, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+            
+            // Distortion for grit
+            const dist = audioCtx.createWaveShaper();
+            dist.curve = makeDistortionCurve(400);
+
+            osc.connect(gain);
+            gain.connect(dist);
+            dist.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.3);
+        }
+
+        function playShellDrop() {
+            // Metallic ringing
+            const t = audioCtx.currentTime + 0.1; // Slight delay
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.frequency.setValueAtTime(1200 + Math.random()*500, t);
+            gain.gain.setValueAtTime(0.1, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.15);
+        }
+
+        // Distortion Helper
+        function makeDistortionCurve(amount) {
+            const k = typeof amount === 'number' ? amount : 50;
+            const n_samples = 44100;
+            const curve = new Float32Array(n_samples);
+            for (let i = 0; i < n_samples; ++i) {
+                const x = (i * 2) / n_samples - 1;
+                curve[i] = (3 + k) * x * 20 * (Math.PI / 180) / (Math.PI + k * Math.abs(x));
+            }
+            return curve;
+        }
+
+        // --- GAMEPLAY ---
+        function shoot() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            if (ammo > 0) {
+                ammo--;
+                ammoDisplay.innerText = `${ammo} / 120`;
+                
+                // Sound
+                playGunshot();
+                playShellDrop();
+
+                // Visuals
+                soldier.classList.remove('recoil');
+                void soldier.offsetWidth; // Reset anim
+                soldier.classList.add('recoil');
+
+                // Flash Lighting
+                flash.style.opacity = 0.8;
+                muzzleShape.setAttribute('opacity', '1');
+                
+                setTimeout(() => {
+                    flash.style.opacity = 0;
+                    muzzleShape.setAttribute('opacity', '0');
+                }, 50);
+
+            } else {
+                // Dry fire click
+                const osc = audioCtx.createOscillator();
+                osc.type = 'square';
+                osc.frequency.value = 600;
+                osc.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.05);
+            }
+        }
+
+        // Mouse Tracking (Parallax)
+        document.addEventListener('mousemove', (e) => {
+            const x = (e.clientX - window.innerWidth/2) / 30;
+            const y = (e.clientY - window.innerHeight/2) / 30;
+            soldier.style.transform = `translate(${x}px, ${y}px)`;
+        });
+
+        document.addEventListener('mousedown', shoot);
+        document.addEventListener('keydown', (e) => {
+            if(e.code === 'Space') shoot();
+            if(e.key === 'r') {
+                ammo = 30;
+                ammoDisplay.innerText = "RELOADING...";
+                setTimeout(() => ammoDisplay.innerText = "30 / 120", 1500);
+            }
+        });
+
+    </script>
+</body>
+</html>
